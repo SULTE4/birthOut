@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BirthOut{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='/sessions.css') }}">
+</head>
+<body>
+  <header><a href="/" class="brand">BirthOut</a><span>WhatsApp birthdays → Google Calendar</span></header>
+  <main>
+    {% if notice %}<div class="message success">{{ notice }}</div>{% endif %}
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer>Runs locally. Full chats are not saved; resumable reviews contain only the displayed evidence excerpts.</footer>
+</body>
+</html>

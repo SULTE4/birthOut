@@ -1,0 +1,80 @@
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-row:last-child {
+  border-bottom: 0;
+}
+
+.review-row p {
+  margin: 4px 0;
+}
+
+.row-actions,
+.sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.button-link {
+  display: inline-block;
+  border-radius: 9px;
+  padding: 11px 16px;
+  background: var(--green);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.calendar-setup {
+  border-color: #dfbc72;
+  background: #fffdf8;
+}
+
+.credential-form {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  max-width: 720px;
+}
+
+.sync-actions {
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+@media (max-width: 760px) {
+  .review-row,
+  .row-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .credential-form {
+    grid-template-columns: 1fr;
+  }
+
+  .row-actions form,
+  .row-actions button,
+  .button-link {
+    width: 100%;
+  }
+
+  .button-link {
+    text-align: center;
+  }
+
+  .sync-actions {
+    align-items: stretch;
+  }
+}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Review · BirthOut{% endblock %}
+{% block content %}
+<div class="review-head">
+  <div><p class="eyebrow">Review import · Autosaved</p><h1>{{ session.filename }}</h1><p>{{ session.message_count }} messages parsed · {{ review_candidates|length }} active candidates</p></div>
+  <div class="sync-actions">
+    <span class="status {{ 'ready' if credentials_ready else '' }}">{{ 'Google credentials ready' if credentials_ready else 'Google setup needed' }}</span>
+    <form action="/review/{{ session.id }}/sync" method="post"><button type="submit">Sync approved to Google</button></form>
+  </div>
+</div>
+
+{% if not credentials_ready %}
+<section class="card calendar-setup">
+  <p class="eyebrow">Set up when ready</p>
+  <h2>Connect Google Calendar without leaving this review</h2>
+  <p class="small">In Google Cloud, enable Calendar API and create an OAuth client of type <strong>Desktop app</strong>. Upload its JSON here; your saved review will remain unchanged.</p>
+  <form action="/review/{{ session.id }}/google-credentials" method="post" enctype="multipart/form-data" class="credential-form">
+    <label>OAuth credentials JSON
+      <input type="file" name="file" accept=".json,application/json" required>
+    </label>
+    <button class="secondary" type="submit">Save credentials and return</button>
+  </form>
+</section>
+{% endif %}
+
+{% if not review_candidates %}
+<section class="card empty"><h2>No birthday candidates found</h2><p>Try checking the date order or use a chat containing explicit dates or named birthday congratulations.</p></section>
+{% endif %}
+
+{% if merge_suggestions %}
+<section class="merge-section">
+  <div class="section-heading">
+    <div><p class="eyebrow">Possible nicknames</p><h2>Review same-day names</h2></div>
+    <p>Sharing a date is only a hint. Select names only when their evidence refers to the same person.</p>
+  </div>
+  {% for suggestion in merge_suggestions %}
+  <form action="/review/{{ session.id }}/merge" method="post" class="card merge-card">
+    <div>
+      <strong>{{ "%02d-%02d"|format(suggestion.month, suggestion.day) }}</strong>
+      <span class="muted">Select at least two aliases</span>
+    </div>
+    <div class="alias-options">
+      {% for candidate in suggestion.candidates %}
+      <label class="alias-option">
+        <input type="checkbox" name="candidate_ids" value="{{ candidate.id }}" checked>
+        <span><strong>{{ candidate.person }}</strong><small>{{ (candidate.confidence * 100)|round|int }}% confidence · {{ candidate.evidence|length }} evidence</small></span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="merge-action">
+      <label>Canonical calendar name
+        <input name="canonical_name" value="{{ suggestion.default_name }}" list="merge-names-{{ suggestion.month }}-{{ suggestion.day }}" autocomplete="off" required>
+        <datalist id="merge-names-{{ suggestion.month }}-{{ suggestion.day }}">
+          {% for option in suggestion.name_options %}<option value="{{ option.value }}" label="{{ option.label }}"></option>{% endfor %}
+        </datalist>
+        <small>Choose a suggestion or edit the name directly.</small>
+      </label>
+      <button type="submit" class="secondary">Merge selected names</button>
+    </div>
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% for candidate in review_candidates %}
+<article class="card candidate {{ candidate.status }}">
+  <div class="candidate-head">
+    <div>
+      <span class="pill">{{ candidate.evidence|length }} source evidence</span>
+      <span class="pill">{{ (candidate.confidence * 100)|round|int }}% confidence</span>
+      <span class="pill subtle">{{ 'group member name' if candidate.name_source.value == 'participant_sender' else ('merged name' if candidate.name_source.value == 'merged' else 'name from message') }}</span>
+      <span class="pill subtle">{{ candidate.status }}</span>
+    </div>
+    <p>{{ candidate.reason }}</p>
+  </div>
+  {% if candidate.aliases %}<p class="aliases"><strong>Aliases in this import:</strong> {{ candidate.aliases|join(', ') }}</p>{% endif %}
+  <form action="/review/{{ session.id }}/{{ candidate.id }}/approve" method="post">
+    <div class="fields">
+      <label>Person
+        <input name="person" value="{{ candidate.person }}" list="candidate-names-{{ candidate.id }}" autocomplete="off" required>
+        <datalist id="candidate-names-{{ candidate.id }}">
+          {% for option in candidate_name_options[candidate.id] %}<option value="{{ option.value }}" label="{{ option.label }}"></option>{% endfor %}
+        </datalist>
+        <small>Choose any group member or edit the name directly.</small>
+      </label>
+      <label>Month<input name="month" type="number" min="1" max="12" value="{{ candidate.month }}" required></label>
+      <label>Day<input name="day" type="number" min="1" max="31" value="{{ candidate.day }}" required></label>
+      <label>Birth year (optional)<input name="year" type="number" min="1900" value="{{ candidate.year or '' }}"></label>
+    </div>
+    {% if candidate.month == 2 and candidate.day == 29 %}
+    <label>February 29 handling
+      <select name="leap_policy" required>
+        <option value="">Choose…</option><option value="leap_only">Leap years only</option>
+        <option value="february_28">Last day of February</option><option value="march_1">Annually on March 1</option>
+      </select>
+    </label>
+    {% else %}<input type="hidden" name="leap_policy" value="">{% endif %}
+    <div class="actions"><button type="submit" {% if candidate.status != 'pending' %}disabled{% endif %}>Approve</button></div>
+  </form>
+  <form action="/review/{{ session.id }}/{{ candidate.id }}/reject" method="post" class="reject-form">
+    <button type="submit" class="danger" {% if candidate.status != 'pending' %}disabled{% endif %}>Reject</button>
+  </form>
+  {% if candidate.merged_source_ids and candidate.status == 'pending' %}
+  <form action="/review/{{ session.id }}/merge/{{ candidate.id }}/undo" method="post" class="undo-form">
+    <button type="submit" class="ghost">Undo merge</button>
+  </form>
+  {% elif candidate.id in undoable_candidate_ids %}
+  <form action="/review/{{ session.id }}/{{ candidate.id }}/undo-review" method="post" class="undo-form">
+    <button type="submit" class="ghost">Undo {{ 'approval' if candidate.status == 'approved' else 'rejection' }}</button>
+  </form>
+  {% elif candidate.status == 'approved' %}
+  <span class="sync-note">Already synchronized</span>
+  {% endif %}
+  <details><summary>Source evidence ({{ candidate.evidence|length }})</summary>
+    {% for evidence in candidate.evidence %}<blockquote><time>{{ evidence.timestamp }}</time><strong>{{ evidence.sender or 'System' }}</strong><p>{{ evidence.excerpt }}</p></blockquote>{% endfor %}
+  </details>
+</article>
+{% endfor %}
+{% endblock %}

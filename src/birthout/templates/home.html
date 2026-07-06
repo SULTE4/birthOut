@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Private, review-first import</p>
+  <h1>Turn group-chat birthday clues into calendar events.</h1>
+  <p>Export a WhatsApp group without media, import the text or ZIP here, and verify every result before anything reaches your calendar.</p>
+</section>
+
+<div class="grid two">
+  <section class="card">
+    <h2>1. Import WhatsApp chat</h2>
+    <form action="/import" method="post" enctype="multipart/form-data">
+      <label>WhatsApp export (.txt or .zip)
+        <input type="file" name="file" accept=".txt,.zip,text/plain,application/zip" required>
+      </label>
+      <label>Date order
+        <select name="day_order">
+          <option value="auto">Detect automatically</option>
+          <option value="dmy">Day / month / year</option>
+          <option value="mdy">Month / day / year</option>
+          <option value="ymd">Year / month / day</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="use_ai" value="yes"> Ask configured Ollama to validate uncertain results</label>
+      <button type="submit">Import and review</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>2. Google Calendar setup</h2>
+    <p class="status {{ 'ready' if credentials_ready else '' }}">{{ 'Desktop OAuth credentials ready' if credentials_ready else 'Credentials not configured' }}</p>
+    <p class="small">In Google Cloud, enable Calendar API and create an OAuth client of type <strong>Desktop app</strong>. Upload its JSON here.</p>
+    <form action="/settings/google-credentials" method="post" enctype="multipart/form-data">
+      <label>OAuth credentials JSON
+        <input type="file" name="file" accept=".json,application/json" required>
+      </label>
+      <button class="secondary" type="submit">Save credentials</button>
+    </form>
+  </section>
+</div>
+
+{% if review_sessions %}
+<section class="card">
+  <div class="section-heading">
+    <div><p class="eyebrow">Autosaved locally</p><h2>Resume a review</h2></div>
+    <p>Review progress remains available after restarting BirthOut. Delete it when you no longer need it.</p>
+  </div>
+  <div class="review-list">
+    {% for review in review_sessions %}
+    <article class="review-row">
+      <div>
+        <strong>{{ review.filename }}</strong>
+        <p class="small">{{ review.pending }} pending · {{ review.approved }} approved · {{ review.rejected }} rejected</p>
+        <time class="small">Updated {{ review.updated_at[:16]|replace('T', ' ') }} UTC</time>
+      </div>
+      <div class="row-actions">
+        <a class="button-link" href="/review/{{ review.id }}">Resume</a>
+        <form action="/review/{{ review.id }}/delete" method="post">
+          <button class="danger" type="submit">Delete review</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="small">Deleting a review does not delete approved birthdays, Google Calendar events, or Calendar credentials.</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Optional local AI</h2>
+  <p class="small">Not needed for normal parsing. Use localhost, or an Ollama server on a trusted private network. Do not publish an unauthenticated Ollama port to the internet.</p>
+  <form action="/settings/ollama" method="post" class="inline-form">
+    <label>Ollama URL<input name="url" value="{{ ollama_url }}" required></label>
+    <label>Model<input name="model" value="{{ ollama_model }}" required></label>
+    <button class="secondary" type="submit">Save AI settings</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Approved birthdays</h2>
+  {% if birthdays %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Person</th><th>Date</th><th>Birth year</th></tr></thead>
+    <tbody>{% for birthday in birthdays %}<tr>
+      <td>{{ birthday.display_name }}</td><td>{{ "%02d-%02d"|format(birthday.month, birthday.day) }}</td><td>{{ birthday.year or "—" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">No birthdays approved yet.</p>{% endif %}
+</section>
+{% endblock %}
